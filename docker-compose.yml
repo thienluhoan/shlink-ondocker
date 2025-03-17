@@ -1,0 +1,67 @@
+version: "3"
+
+services:
+  shlink-database:
+    image: postgres:latest
+    container_name: shlink-database
+    hostname: shlink-db
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "shlink", "-U", "shlinkuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - /docker_data/shlink/shlinkdb:/var/lib/postgresql/data:rw
+    environment:
+      POSTGRES_DB: shlink
+      POSTGRES_USER: shlinkuser
+      POSTGRES_PASSWORD: shlinkpw
+    restart: unless-stopped
+
+  shlink-backend:
+    image: shlinkio/shlink:stable
+    container_name: shlink-backend
+    hostname: shlink
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 8335:8080
+    environment:
+      - TZ="Asia/Ho_Chi_Minh"
+      - DB_DRIVER=postgres
+      - DB_NAME=shlink
+      - DB_USER=shlinkuser
+      - DB_PASSWORD=shlinkpw
+      - DB_HOST=shlink-db
+      - DB_PORT=5432
+      - AUTO_RESOLVE_TITLES=true
+      - MULTI_SEGMENT_SLUGS_ENABLED=true
+      - SHORT_URL_TRAILING_SLASH=false
+      - DEFAULT_DOMAIN=shortlink.thienlu.com
+      - IS_HTTPS_ENABLED=true
+      - INITIAL_API_KEY=your_api_key
+      - GEOLITE_LICENSE_KEY=your_license_key
+    restart: unless-stopped
+    depends_on:
+      shlink-database:
+        condition: service_started
+
+  shlink-web:
+    image: shlinkio/shlink-web-client:stable
+    container_name: shlink-web
+    hostname: shlink-web
+    security_opt:
+      - no-new-privileges:true
+    # healthcheck:
+    #   test: wget --no-verbose --tries=1 --spider http://localhost:8080/ || exit 1
+    ports:
+      - 8336:8080
+    environment:
+      - SHLINK_SERVER_NAME=SVC-UB2404-101
+      - SHLINK_SERVER_URL=https://shortlink.thienlu.com
+      - SHLINK_SERVER_API_KEY=your_api_key
+    restart: unless-stopped
+    depends_on:
+      - shlink-backend
